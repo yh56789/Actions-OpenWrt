@@ -17,4 +17,4 @@ jobs:
         uses: hominsu/immortalwrt-builder-action@v1
         with:
           image: immortalwrt/imagebuilder:x86-generic-openwrt-24.10.0
-          args: PROFILE=generic PACKAGES="luci luci-base luci-i18n-base-zh-cn kmod-skge kmod-pata-sch kmod-ata-generic block-mount partx-utils e2fsprogs" ROOTFS_PARTSIZE=2048
+          args: PROFILE=generic PACKAGES="luci luci-base luci-i18n-base-zh-cn kmod-sky2 block-mount partx-utils e2fsprogs" ROOTFS_PARTSIZE=2048
