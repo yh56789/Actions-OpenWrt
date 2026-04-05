@@ -1,0 +1,23 @@
+name: Build ImmortalWrt x86/32 for Sony VAIO X118LC
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ImmortalWrt
+        uses: hominsu/immortalwrt-builder-action@v1
+        with:
+          image: immortalwrt/imagebuilder:x86-generic-openwrt-24.10.0
+          args: |
+            PROFILE=generic
+            PACKAGES="luci luci-base luci-i18n-base-zh-cn kmod-skge kmod-pata-sch kmod-ata-generic block-mount luci-app-openclash"
+            ROOTFS_PARTSIZE=1024
