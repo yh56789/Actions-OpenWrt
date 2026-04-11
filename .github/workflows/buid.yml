@@ -1,49 +1,82 @@
-name: Build ImmortalWrt for Sony VPCX118LC
-on:
-  workflow_dispatch:
+# ImmortalWrt 自动编译 - 固定版本 24.10.5 / 内核 6.6.122
+name: Build ImmortalWrt 24.10.5
 
-env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: openwrt-24.10
-  CONFIG_FILE: .config
-  TZ: Asia/Shanghai
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # 手动触发编译
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
+      - name: 检查服务器配置
         run: |
-          sudo apt update
-          sudo apt -y install build-essential clang flex bison g++ gawk gcc-multilib git libncurses-dev libssl-dev python3 rsync unzip zlib1g-dev
+          echo "CPU 核心数：$(nproc)"
+          free -h
+          df -h
 
-      - name: Clone ImmortalWrt code
+      - name: 安装编译依赖
         run: |
-          git clone --depth 1 $REPO_URL -b $REPO_BRANCH immortalwrt
+          sudo apt update -y
+          sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+          bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib \
+          git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+          libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz \
+          mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip libpython3-dev qemu-utils \
+          rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
 
-      - name: Apply custom config
+      - name: 克隆源码 - 固定 v24.10.5 标签
         run: |
-          cp .config immortalwrt/
+          git clone -b v24.10.5 --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git immortalwrt
+          cd immortalwrt
 
-      - name: Update feeds
+      - name: 上传自定义配置文件 (config.seed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: config.seed
+          path: immortalwrt/.config
+
+      - name: 更新 feeds
         run: |
           cd immortalwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          make defconfig
 
-      - name: Compile firmware
+      - name: 自定义配置菜单（在这里修改你的机型）
         run: |
           cd immortalwrt
-          make -j$(nproc) || make -j1 V=s
+          # ========== 在这里修改你的机型配置 ==========
+          # 示例：x86_64 通用机型
+          cat > .config << EOF
+          CONFIG_TARGET_x86=y
+          CONFIG_TARGET_x86_64=y
+          CONFIG_TARGET_x86_64_DEVICE_generic=y
+          # 你可以在这里追加更多 LuCI 插件配置
+          EOF
 
-      - name: Show built files
-        run: ls -lh immortalwrt/bin/targets/x86/generic/
+          # 加载配置
+          make defconfig
 
-      - name: Upload firmware
+      - name: 下载依赖包
+        run: |
+          cd immortalwrt
+          make download -j$(nproc)
+
+      - name: 开始编译固件
+        run: |
+          cd immortalwrt
+          make -j$(nproc) V=s
+
+      - name: 检查编译错误
+        if: ${{ failure() }}
+        run: |
+          cd immortalwrt
+          cat logs/*
+
+      - name: 上传固件成品
         uses: actions/upload-artifact@v4
         with:
-          name: immortalwrt-firmware
-          path: immortalwrt/bin/targets/x86/generic/*.img.gz
+          name: immortalwrt-24.10.5-firmware
+          path: immortalwrt/bin/targets/
