@@ -1,19 +1,18 @@
-# ImmortalWrt 自动编译 - 固定版本 24.10.5 / 内核 6.6.122
-name: Build ImmortalWrt 24.10.5
+name: Build ImmortalWrt 24.10.5 x86_64 (使用自己的.config + 内核config)
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch: # 手动触发编译
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: 检查服务器配置
+      - name: 检出仓库代码（获取你的 .config 和 config-6.6）
+        uses: actions/checkout@v4
+
+      - name: 查看服务器信息
         run: |
-          echo "CPU 核心数：$(nproc)"
+          echo "CPU 核心数: $(nproc)"
           free -h
           df -h
 
@@ -27,39 +26,32 @@ jobs:
           mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip libpython3-dev qemu-utils \
           rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
 
-      - name: 克隆源码 - 固定 v24.10.5 标签
+      - name: 克隆 ImmortalWrt 源码（固定 v24.10.5 标签）
         run: |
           git clone -b v24.10.5 --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git immortalwrt
-          cd immortalwrt
 
-      - name: 上传自定义配置文件 (config.seed)
-        uses: actions/upload-artifact@v4
-        with:
-          name: config.seed
-          path: immortalwrt/.config
+      # ==================== 关键：应用你自己的配置文件 ====================
+      - name: 应用你自己的固件配置 .config
+        run: |
+          cp .config immortalwrt/.config
 
+      - name: 应用你自己的 x86 内核配置 config-6.6
+        run: |
+          cp config-6.6 immortalwrt/target/linux/x86/generic/config-6.6
+
+      # =================================================================
       - name: 更新 feeds
         run: |
           cd immortalwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: 自定义配置菜单（在这里修改你的机型）
+      - name: 加载配置
         run: |
           cd immortalwrt
-          # ========== 在这里修改你的机型配置 ==========
-          # 示例：x86_64 通用机型
-          cat > .config << EOF
-          CONFIG_TARGET_x86=y
-          CONFIG_TARGET_x86_64=y
-          CONFIG_TARGET_x86_64_DEVICE_generic=y
-          # 你可以在这里追加更多 LuCI 插件配置
-          EOF
-
-          # 加载配置
           make defconfig
 
-      - name: 下载依赖包
+      - name: 下载依赖
         run: |
           cd immortalwrt
           make download -j$(nproc)
@@ -69,14 +61,8 @@ jobs:
           cd immortalwrt
           make -j$(nproc) V=s
 
-      - name: 检查编译错误
-        if: ${{ failure() }}
-        run: |
-          cd immortalwrt
-          cat logs/*
-
-      - name: 上传固件成品
+      - name: 上传编译好的固件
         uses: actions/upload-artifact@v4
         with:
-          name: immortalwrt-24.10.5-firmware
+          name: immortalwrt-24.10.5-x86_64
           path: immortalwrt/bin/targets/
