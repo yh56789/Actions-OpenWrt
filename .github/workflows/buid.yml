@@ -1,4 +1,4 @@
-name: Build ImmortalWrt 24.10.5 x86_64 (使用自己的.config + 内核config)
+name: Build ImmortalWrt 24.10.5 x86_generic
 
 on:
   workflow_dispatch:
